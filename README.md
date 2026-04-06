@@ -124,7 +124,3 @@ market-feature-store/
 
 ---
 
-## Resume Line
-
-> **Market Feature Store** — PostgreSQL pipeline with Bronze/Silver/Gold schemas; engineered quant features (rolling volatility, RSI, VWAP, momentum) entirely in SQL using CTEs and window functions; ingests live Finnhub quotes and yfinance OHLCV history; data contracts defined using Goldman Sachs's Finos Legend
-> *PostgreSQL · SQL · Python · Finnhub · yfinance · Finos Legend*
