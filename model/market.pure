@@ -1,0 +1,19 @@
+Class market::Quote
+{
+    ticker    : String[1];
+    price     : Float[1];
+    volume    : Integer[1];
+    ts        : DateTime[1];
+    source    : String[1];
+}
+
+Class market::OHLCVBar
+{
+    ticker    : String[1];
+    open      : Float[1];
+    high      : Float[1];
+    low       : Float[1];
+    close     : Float[1];
+    volume    : Integer[1];
+    dt        : StrictDate[1];
+}
