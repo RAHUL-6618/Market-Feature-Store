@@ -38,14 +38,25 @@ def grab_ohlcv(ticker, start, end):
     return df.head()
 
 if __name__ == "__main__":
+    from rich.console import Console
+    from rich.table import Table
+    from rich import box
+
+    console = Console()
     tickers = ["AAPL", "MSFT", "GOOGL"]
 
-    print("--- quotes ---")
+    console.print("\n[bold cyan]Quotes[/]")
+    q_table = Table(box=box.SIMPLE, header_style="bold cyan")
+    q_table.add_column("Ticker"); q_table.add_column("Price", justify="right"); q_table.add_column("Volume", justify="right")
     for t in tickers:
         row = grab_quote(t)
-        print(t, row[1], row[2])
+        q_table.add_row(row[0], f"${row[1]:,.2f}", f"{row[2]:,}")
+    console.print(q_table)
 
-    print("\n--- ohlcv ---")
+    console.print("[bold magenta]OHLCV[/]")
+    o_table = Table(box=box.SIMPLE, header_style="bold magenta")
+    o_table.add_column("Ticker"); o_table.add_column("Rows", justify="right")
     for t in tickers:
         df = grab_ohlcv(t, "2024-01-01", "2024-12-31")
-        print(t, df.shape)
+        o_table.add_row(t, str(df.shape[0]))
+    console.print(o_table)

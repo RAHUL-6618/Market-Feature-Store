@@ -1,64 +1,86 @@
 # Market Feature Store
 
-End-to-end market data pipeline built on PostgreSQL. Ingests live quotes from Finnhub and historical OHLCV from yfinance, engineers quant features entirely in SQL across a Bronze / Silver / Gold architecture. Data contracts defined using Goldman Sachs's open-source Finos Legend.
+![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?logo=postgresql&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Data](https://img.shields.io/badge/Data-Finnhub%20%7C%20yfinance-orange)
+![Schema](https://img.shields.io/badge/Contracts-Finos%20Legend-purple)
+
+End-to-end market data pipeline built on PostgreSQL. Ingests live quotes from Finnhub and historical OHLCV from yfinance, engineers quant features entirely in SQL across a **Bronze / Silver / Gold** medallion architecture. Data contracts defined using Goldman Sachs's open-source [Finos Legend](https://legend.finos.org).
 
 ---
 
 ## Architecture
+
 ```
-Finnhub API          yfinance
-(live quotes)        (historical OHLCV)
-     │                    │
-     └────────┬───────────┘
-              │
-         ingest.py
-              │
-     ┌────────▼────────┐
-     │  bronze schema  │  raw insert, no transformation
-     │  quotes, ohlcv  │
-     └────────┬────────┘
-              │
-     ┌────────▼────────┐
-     │  silver schema  │  cleaned, type-validated views
-     └────────┬────────┘
-              │
-     ┌────────▼────────┐
-     │   gold schema   │  feature views — all SQL
-     │   gold.features │
-     └─────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                    Data Sources                      │
+│                                                      │
+│   Finnhub API (live quotes)   yfinance (OHLCV)       │
+└───────────────┬───────────────────────┬─────────────┘
+                │                       │
+                └──────────┬────────────┘
+                           │
+                       ingest.py
+                           │
+         ┌─────────────────▼──────────────────┐
+         │           bronze schema             │
+         │   quotes table · ohlcv table        │
+         │   raw insert, no transformation     │
+         └─────────────────┬──────────────────┘
+                           │
+         ┌─────────────────▼──────────────────┐
+         │           silver schema             │
+         │   cleaned + type-validated views    │
+         └─────────────────┬──────────────────┘
+                           │
+         ┌─────────────────▼──────────────────┐
+         │            gold schema              │
+         │   gold.features — all SQL           │
+         │   window functions · CTEs           │
+         └────────────────────────────────────┘
 ```
 
 ---
 
 ## Features Engineered in SQL
 
-All feature engineering lives in `features.sql` using CTEs and window functions.
+All feature engineering lives in `features.sql` using CTEs and window functions — zero Python, zero pandas.
 
-| Feature | Description |
-|---|---|
-| ret_1d / ret_5d / ret_20d | Price returns over 1, 5, 20 days |
-| vol_20d | 20-day rolling volatility (std of daily returns) |
-| ma_50 / ma_200 | 50 and 200-day moving averages |
-| vwap_10 | 10-day volume-weighted average price |
-| vol_zscore | Volume z-score over 20-day window |
-| rsi_14 | 14-day Relative Strength Index |
+| Feature | Window | Description |
+|---|---|---|
+| `ret_1d` | 1 day | Daily price return |
+| `ret_5d` | 5 days | Weekly price return |
+| `ret_20d` | 20 days | Monthly price return |
+| `vol_20d` | 20 days | Rolling volatility (std of daily returns) |
+| `ma_50` | 50 days | Simple moving average |
+| `ma_200` | 200 days | Long-term moving average |
+| `vwap_10` | 10 days | Volume-weighted average price |
+| `vol_zscore` | 20 days | Volume z-score (anomaly detection) |
+| `rsi_14` | 14 days | Relative Strength Index |
 
 ---
 
 ## Data Contracts — Finos Legend
 
-Data models for `Quote` and `OHLCVBar` are defined in `model/market.pure` using Goldman Sachs's open-source [Finos Legend](https://legend.finos.org) schema language. The Postgres schema in `schema.sql` is derived directly from these model definitions.
+Data models for `Quote` and `OHLCVBar` are defined in `model/market.pure` using Goldman Sachs's open-source [Finos Legend](https://legend.finos.org) schema language. The Postgres schema in `schema.sql` is derived directly from these model definitions, keeping the pipeline contract-first.
+
+```
+model/market.pure  ──▶  schema.sql  ──▶  bronze.quotes / bronze.ohlcv
+```
 
 ---
 
 ## Stack
 
-- PostgreSQL 15
-- Python 3.12
-- Finnhub API
-- yfinance
-- Finos Legend (Pure)
-- psycopg2, python-dotenv
+| Layer | Technology |
+|---|---|
+| Storage | PostgreSQL 15 |
+| Runtime | Python 3.12 |
+| Live quotes | Finnhub API |
+| Historical OHLCV | yfinance |
+| Data contracts | Finos Legend (Pure) |
+| Python libs | psycopg2 · python-dotenv · rich |
 
 ---
 
@@ -66,11 +88,11 @@ Data models for `Quote` and `OHLCVBar` are defined in `model/market.pure` using 
 
 ### 1. Install dependencies
 ```bash
-pip install finnhub-python yfinance psycopg2-binary python-dotenv
+pip install finnhub-python yfinance psycopg2-binary python-dotenv rich
 ```
 
 ### 2. Create `.env`
-```
+```env
 FINNHUB_KEY=your_finnhub_api_key
 DB=postgresql://your_user@localhost/mfs
 ```
@@ -89,33 +111,41 @@ python run.py
 ---
 
 ## Query the Gold Layer
+
 ```sql
 -- latest features for all tickers
 SELECT * FROM gold.features
 ORDER BY dt DESC, ticker
 LIMIT 20;
 
--- RSI overbought signals
+-- RSI overbought signals (> 70)
 SELECT ticker, dt, close, rsi_14
 FROM gold.features
 WHERE rsi_14 > 70
 ORDER BY dt DESC;
 
--- high volume anomalies
+-- high volume anomalies (z-score > 2σ)
 SELECT ticker, dt, close, volume, vol_zscore
 FROM gold.features
 WHERE vol_zscore > 2
 ORDER BY vol_zscore DESC;
+
+-- golden cross candidates (MA50 crosses above MA200)
+SELECT ticker, dt, close, ma_50, ma_200
+FROM gold.features
+WHERE ma_50 > ma_200
+ORDER BY dt DESC;
 ```
 
 ---
 
 ## Project Structure
+
 ```
 market-feature-store/
 ├── model/
 │   └── market.pure      # Finos Legend data contracts
-├── schema.sql            # Postgres DDL — bronze/silver/gold schemas
+├── schema.sql            # Postgres DDL — bronze / silver / gold schemas
 ├── ingest.py             # Finnhub + yfinance ingestion
 ├── features.sql          # Silver + Gold views (all feature engineering)
 ├── run.py                # Pipeline orchestrator
@@ -124,3 +154,6 @@ market-feature-store/
 
 ---
 
+## License
+
+[MIT](LICENSE)
