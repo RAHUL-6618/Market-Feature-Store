@@ -1,4 +1,9 @@
 # Market Feature Store
+![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?logo=postgresql&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Data](https://img.shields.io/badge/Data-Finnhub%20%7C%20yfinance-orange)
+![Schema](https://img.shields.io/badge/Contracts-Finos%20Legend-purple)
 
 End-to-end market data pipeline built on PostgreSQL. Ingests live quotes from Finnhub and historical OHLCV from yfinance, engineers quant features entirely in SQL across a Bronze / Silver / Gold architecture. Data contracts defined using Goldman Sachs's open-source Finos Legend.
 
